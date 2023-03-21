@@ -1,0 +1,21 @@
+.post a {
+    height: 22rem;
+    transform-origin: center;
+    border-radius: 12px;
+    text-decoration: none;
+}
+
+
+.post a:hover,
+.post a:active {
+    transform: scale(1.1);
+    color: white;
+}
+
+.post img {
+    height: 80px;
+    width: 80px;
+    border-radius: 50%;
+    margin-bottom: 22px;
+
+}
