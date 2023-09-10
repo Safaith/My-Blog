@@ -1,64 +1,138 @@
-from django.shortcuts import render
-from datetime import date
+from typing import Any, Dict
+from django.shortcuts import render, get_object_or_404
+from django.views.generic import ListView,DetailView
+from django.views.generic import View
+from django.urls import reverse
+from django.http import HttpResponseRedirect
+
+from .models import Post
+from .forms import commentform
 
 # Create your views here.
-all_posts = [
-    {
-        "slug": "hike-in-the-mountains",
-        "image": "mountains.jpg",
-        "author": "fahim",
-        "date": date(2021, 7, 21),
-        "title": "Mountain Hiking",
-        "excerpt": """There's nothing like the views you get when hiking in the mountains! And I wasn't even prepared for that beautiful view!""",
-        "content": """
-          The hiking tours in the "mountain hiking" category lead you along hiking paths where sure-footedness and sometimes a head for heights are required. Particularly on the steeper, sometimes unpaved sections, surefootedness is an advantage. The daily stages are scheduled to take between four and about six and a half hours. On some mountain hiking tours, you can also expect smaller ascents to the summit. On a mountain hike, you will cover longer distances and climb a few metres in altitude. This is our difficulty level three, but on the day tours you will be rewarded with unforgettable-beautiful views and hiking experiences that you will remember for a long time.
-        """
-    },
-    {
-        "slug": "programming-is-fun",
-        "image": "coding.jpg",
-        "author": "tanjim",
-        "date": date(2022, 3, 10),
-        "title": "Programming Is Great!",
-        "excerpt": "Did you ever spend hours searching that one error in your code? Yep - that's what happened to me yesterday...",
-        "content": """
-        First is the sheer joy of making things. As the child delights in his mud pie, so the adult enjoys building things, especially things of his own design. I think this delight must be an image of God's delight in making things, a delight shown in the distinctiveness of each leaf and each snowflake.
-        Second is the pleasure of making things that are useful to other people.Deep within, we want others to use our work and to find it helpful. In this respect the programming system is not essentially different from the child's first clay pencil holder "for Daddy's office.
-        """
-    },
-    {
-        "slug": "into-the-woods",
-        "image": "woods.jpg",
-        "author": "safaith",
-        "date": date(2020, 8, 5),
-        "title": "Nature At Its Best",
-        "excerpt": "Nature is amazing! The amount of inspiration I get when walking in nature is incredible!",
-        "content": """
-                Wood has the best thermal insulation properties of any mainstream construction material. When sourced from sustainably managed forests it can actually be better than carbon neutral.
-                As a natural product and every piece, regardless of species, is completely unique. This means that it can vary dramatically in appearance (even form the same tree/board). This adds to the character, diversity and beauty of the material – but is also something to consider if you are expecting all pieces to look alike.
-                Wood is a hard, fibrous structural tissue found in the stems and roots of trees and other woody plants. It has been used for thousands of years for both fuel and as a construction material. It is an organic material, a natural composite of cellulose fibres (which are strong in tension) embedded in a matrix of lignin which resists compression.
-                    """
-    }
-]
-def get_date(post):
-    return post['date']
+all_posts = []
 
-def index(request):
-    sorted_post = sorted(all_posts,key=get_date)
-    latest_posts = sorted_post[-3:] 
-    return render(request, "blog/index.html",{
-        "posts": latest_posts
+class startingPage(ListView):
+    template_name ="blog/index.html"
+    model = Post
+    ordering = ["-date"]
+    context_object_name="posts"
+
+    def get_queryset(self):
+       queryset= super().get_queryset()
+       data = queryset[:3]
+       return data
+   
+    
+    
+# def index(request):
+#     latest_posts = Post.objects.all().order_by("-date")[:3]
+#     return render(request, "blog/index.html", {
+#         "posts": latest_posts
+#     })
+
+
+# def posts(request):
+#     all_posts = Post.objects.all().order_by("-date")
+#     return render(request, "blog/all-posts.html", {
+#         "all_posts": all_posts
+#     })
+
+
+class AllPosts(ListView):
+    template_name ="blog/all-posts.html"
+    model = Post
+    context_object_name ="all_posts"
+
+
+def post_details(request, slug):
+    identify_post = get_object_or_404(Post, slug=slug)
+    return render(request, "blog/post-detail.html", {
+        "post": identify_post,
+        "post_tags": identify_post.tags.all()
     })
+# class SinglePost(DetailView):
+#     template_name = "blog/post-detail.html"
+#     model = Post
+
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context["post_tags"] = self.object.tags.all()
+#         context["comment_tags"]=commentform()
+#         return context
+    
+        
+
+class SinglePost(View):
+    def is_store(self,request,post_id):
+        store_posts = request.session.get("store_posts")
+        if store_posts is not None:
+            is_later = post_id in store_posts
+        else:
+            is_later = False
+
+        return is_later
+       
+    def get(self,request,slug):
+        post=Post.objects.get(slug=slug)
+        context = {
+            "post":post,
+            "post_tags":post.tags.all(),
+            "comment_tags":commentform(),
+            "post_comments":post.comments.all().order_by("-id"),
+            "store_post":self.is_store(request,post.id)
+        }
+        return render(request,"blog/post-detail.html",context)
+    def post(self,request,slug):
+        comment_form = commentform(request.POST)
+        post = Post.objects.get(slug=slug) 
+
+        if comment_form.is_valid():
+            comments =comment_form.save(commit=False)
+            comments.post = post
+            comments.save()
+            return HttpResponseRedirect(reverse("post_details", args=[slug]))
+       
+        context ={
+            "post":post,
+            "post_tags":post.tags.all(),
+            "comment_tags":comment_form,
+            "post_comments":post.comments.all().order_by("-id"),
+            "store_post":self.is_store(request,post.id)
+        }
+        return render(request,"blog/post-detail.html",context)
 
 
-def posts(request):
-    return render(request,"blog/all-posts.html",{
-        "all_posts":all_posts
-    })
+class ReadLaterView(View):
+
+    def get(self,request):
+        store_posts = request.session.get("store_posts")
+
+        context={}
+
+        if store_posts is None or len(store_posts)==0:
+            context["posts"]=[]
+            context["has_posts"]=False
+        else:
+            context["posts"]= Post.objects.filter(id__in=store_posts)
+            context["has_posts"]=True    
+
+        return render(request,"blog/stored_post.html",context)
+
+    def post(self,request):
+        store_posts = request.session.get("store_posts")
+
+        if store_posts is None:
+            store_posts=[]
+
+        post_id = int(request.POST["post_id"])
+
+        if post_id not in store_posts:
+            store_posts.append(post_id)
+        else:
+            store_posts.remove(post_id)
+        request.session["store_posts"] = store_posts         
+            
+             
+        return HttpResponseRedirect("/")  
 
 
-def post_details(request,slug):
-    identify_post = next(post for post in all_posts if post['slug']==slug )
-    return render(request,"blog/post-detail.html",{
-        "post":identify_post
-    })

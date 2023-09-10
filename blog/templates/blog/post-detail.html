@@ -8,15 +8,65 @@
 {%endblock%}
 
 {%block content%}
+  {% if comment_tags.errors %}
+    <div id="alert">
+      <h3>saving the comment failed!</h3>
+      <p>Please check the comment form below the post anf fix your errors.</p>
+      <a href="#comment">fix!</a>
+    </div>
+  {% endif %}
 <section id="summary">
     <h2>{{post.title}}</h2>
+    <div>
+      {% for tag in post_tags %}
+      <span class="tag">{{tag.caption}}</span>
+      {% endfor %}
+    </div>
+    <div id="bstyle">
+      <form action="{% url 'read_later' %}" method="POST">
+        {% csrf_token %}
+        <input type="hidden" value="{{post.id}}" name="post_id">
+        <button>
+          {% if store_post %}
+             Remove from "Read Later" List            
+          {% else %}
+             Read Later
+          {% endif %}
+        </button>
+      </form>
+    </div>
     <article>
-        <img src="{% static "blog/images/"|add:post.image %}" alt="{{post.title}}">
-        <address>{{post.author|title}}</address>
+        <img src="{{ post.image.url }}" alt="{{post.title}}">
+        <address>By <a href="mailto:{{post.author.email_address}}">{{post.author|title}}</a></address>
         <div> Last updated on <time>{{post.date}}</time></div>
     </article>
 </section>
 <main>
-  {{post.content}}
+  {{post.content|linebreaks}}
 </main>
+<section id="cstyle">
+  <ul>
+  {% for comment in post_comments %}
+  <li>
+    <h2>{{comment.user_name}}</h2>
+    <p>{{comment.text|linebreaks}}</p>
+  </li>
+  {% endfor %}
+  </ul>
+</section>
+
+<section id="comment">
+  <h2>Your comment</h2>
+  <form action="{% url 'post_details' post.slug %}" method="POST">
+    {% csrf_token %}
+    {% for field in comment_tags %}
+    <div class="form-control {% if field.errors %}invalid{% endif %}">
+       {{ field.label_tag }}
+       {{ field }}
+       {{ field.errors }}
+    </div>
+    {% endfor %}
+    <button>save comment</button>
+  </form>
+</section>
 {% endblock %}

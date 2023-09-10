@@ -17,9 +17,10 @@
         <h1><a href="{% url 'index' %}">Hasan's Blog</a></h1>
         <nav>   
             <a href="{% url 'posts' %}">All Posts</a>
+            <a href="{% url 'read_later' %}">Store Posts</a>
         </nav>
     </header>
-    {%block content %}Challenges?{%endblock%}
+    {%block content %}Challenges{%endblock%}
    </body>
 
 </html>

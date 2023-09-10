@@ -122,8 +122,12 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
         BASE_DIR / "static"
 ]
+MEDIA_ROOT = BASE_DIR/ "uploads"
+MEDIA_URL = "/file/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
